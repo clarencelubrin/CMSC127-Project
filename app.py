@@ -237,25 +237,26 @@ async def add_vehicle(
     license_no: str = Form(None), # Optional
     curr=Depends(get_db)
 ):
+    if not isPlateNumberValid(plate_no):
+        return redirect_with_flash(
+            "/vehicles",
+            error="Invalid plate number format. Expected format: AAA-1234"
+        )
+
     try:
-        if not isPlateNumberValid(plate_no):
-            return "Invalid plate number format. Expected format: AAA-1234", 400
-        
         new_vehicle = Vehicle(
-            plate_no, engine_no, chassis_no, vehicle_type, color, 
+            plate_no, engine_no, chassis_no, vehicle_type, color,
             year, model, make, registration_no, license_no
         )
-        
+
         success = vehicle_dao.create_vehicle(curr, new_vehicle)
-        
+
         if success:
             return RedirectResponse(url="/vehicles", status_code=303)
-        else:
-            return "Error saving to database", 500
-            
+        return redirect_with_flash("/vehicles", error="Error saving to database")
     except Exception as e:
-        print(f"Validation or Database Error: {e}")
-        return f"Error: {e}", 400
+        print(f"Vehicle add error: {e}")
+        return redirect_with_flash("/vehicles", error=f"Error saving to database: {e}")
     
 @app.get("/vehicles/search")
 async def search_vehicle(request: Request, query: str, curr=Depends(get_db)):
@@ -293,8 +294,7 @@ async def delete_vehicle(plate_no: str, curr=Depends(get_db)):
     success = vehicle_dao.delete_vehicle(curr, plate_no)
     if success:
         return RedirectResponse(url="/vehicles", status_code=303)
-    else:
-        return "Error deleting vehicle", 500
+    return redirect_with_flash("/vehicles", error="Error deleting vehicle")
 
 @app.post("/vehicles/update")
 async def update_vehicle_route(
@@ -310,17 +310,24 @@ async def update_vehicle_route(
     license_no: str = Form(None), # Optional
     curr=Depends(get_db)
 ):
-    from models.vehicle import Vehicle
-
     if not isPlateNumberValid(plate_no):
-        return "Invalid plate number format. Expected format: AAA-1234", 400
+        return redirect_with_flash(
+            "/vehicles",
+            error="Invalid plate number format. Expected format: AAA-1234"
+        )
 
-    vehicle = Vehicle(
-        plate_no, engine_no, chassis_no, vehicle_type, 
-        color, year, model, make, registration_no, license_no
-    )
-    success = vehicle_dao.update_vehicle(curr, vehicle)
-    return RedirectResponse(url="/vehicles", status_code=303)
+    try:
+        vehicle = Vehicle(
+            plate_no, engine_no, chassis_no, vehicle_type,
+            color, year, model, make, registration_no, license_no
+        )
+        success = vehicle_dao.update_vehicle(curr, vehicle)
+        if success:
+            return RedirectResponse(url="/vehicles", status_code=303)
+        return redirect_with_flash("/vehicles", error="Error updating vehicle")
+    except Exception as e:
+        print(f"Vehicle update error: {e}")
+        return redirect_with_flash("/vehicles", error=f"Error updating vehicle: {e}")
 
 # VIOLATION MANAGEMENT
 @app.get("/violations", response_class=HTMLResponse)
@@ -356,6 +363,14 @@ async def add_violation(
     curr=Depends(get_db)
 ):
     try:
+        parsed_date = Date.fromisoformat(date)
+    except ValueError as e:
+        return redirect_with_flash(
+            "/violations",
+            error=f"Invalid violation date format. Expected YYYY-MM-DD. {e}"
+        )
+
+    try:
         # convert comma-separated violation types into list of ViolationType objects
         vt_list = []
         if violation_types:
@@ -363,22 +378,20 @@ async def add_violation(
                 vt_list.append(ViolationType(violation_id, vt.strip())) # Assuming ViolationType can be created with just the type name
 
         new_violation = Violation(
-            violation_id, Date.fromisoformat(date), location, 
-            corresponding_fine_amount, apprehending_officer, 
+            violation_id, parsed_date, location,
+            corresponding_fine_amount, apprehending_officer,
             violation_status, license_no, plate_no
         )
         new_violation.set_violation_types(vt_list)
 
         success = violation_dao.create_violation(curr, new_violation)
-        
+
         if success:
             return RedirectResponse(url="/violations", status_code=303)
-        else:
-            return "Error saving to database", 500
-            
+        return redirect_with_flash("/violations", error="Error saving to database")
     except Exception as e:
-        print(f"Validation or Database Error: {e}")
-        return f"Error: {e}", 400
+        print(f"Violation add error: {e}")
+        return redirect_with_flash("/violations", error=f"Error saving to database: {e}")
     
 @app.post("/violations/update")
 async def update_violation_route(
@@ -394,29 +407,34 @@ async def update_violation_route(
     curr=Depends(get_db)
 ):
     try:
-        
+        parsed_date = Date.fromisoformat(date)
+    except ValueError as e:
+        return redirect_with_flash(
+            "/violations",
+            error=f"Invalid violation date format. Expected YYYY-MM-DD. {e}"
+        )
+
+    try:
         vt_list = []
         if violation_types:
             for vt in violation_types.split(","):
                 vt_list.append(ViolationType(violation_id, vt.strip())) # Assuming ViolationType can be created with just the type name
 
         new_violation = Violation(
-            violation_id, Date.fromisoformat(date), location, 
-            corresponding_fine_amount, apprehending_officer, 
+            violation_id, parsed_date, location,
+            corresponding_fine_amount, apprehending_officer,
             violation_status, license_no, plate_no
         )
         new_violation.set_violation_types(vt_list)
 
         success = violation_dao.update_violation(curr, new_violation)
-        
+
         if success:
             return RedirectResponse(url="/violations", status_code=303)
-        else:
-            return "Error saving to database", 500
-            
+        return redirect_with_flash("/violations", error="Error saving to database")
     except Exception as e:
-        print(f"Validation or Database Error: {e}")
-        return f"Error: {e}", 400
+        print(f"Violation update error: {e}")
+        return redirect_with_flash("/violations", error=f"Error updating violation: {e}")
 
 
 @app.post("/violations/{violation_id}/delete")
@@ -424,8 +442,7 @@ async def delete_violation(violation_id: int, curr=Depends(get_db)):
     success = violation_dao.delete_violation(curr, violation_id)
     if success:
         return RedirectResponse(url="/violations", status_code=303)
-    else:
-        return "Error deleting violation", 500
+    return redirect_with_flash("/violations", error="Error deleting violation")
 
 @app.get("/violations/search")
 async def search_violations(request: Request, query: str, curr=Depends(get_db)):
@@ -490,16 +507,38 @@ async def add_registration(
     plate_no: str = Form(None),
     curr=Depends(get_db)
 ):
-    try:
-        if license_no and not isLicenseNumberValid(license_no):
-            return "Invalid license number format. Expected format: AAA-YY-CCCCCC", 400
-        if plate_no and not isPlateNumberValid(plate_no):
-            return "Invalid plate number format. Expected format: AAA-1234", 400
+    if license_no and not isLicenseNumberValid(license_no):
+        return redirect_with_flash(
+            "/registrations",
+            error="Invalid license number format. Expected format: AAA-YY-CCCCCC"
+        )
+    if plate_no and not isPlateNumberValid(plate_no):
+        return redirect_with_flash(
+            "/registrations",
+            error="Invalid plate number format. Expected format: AAA-1234"
+        )
 
+    try:
+        registration_dt = Date.fromisoformat(registration_date)
+    except ValueError as e:
+        return redirect_with_flash(
+            "/registrations",
+            error=f"Invalid registration date format. Expected YYYY-MM-DD. {e}"
+        )
+
+    try:
+        expiration_dt = Date.fromisoformat(expiration_date)
+    except ValueError as e:
+        return redirect_with_flash(
+            "/registrations",
+            error=f"Invalid expiration date format. Expected YYYY-MM-DD. {e}"
+        )
+
+    try:
         reg = Registration(
-            registration_no, 
-            Date.fromisoformat(registration_date), 
-            Date.fromisoformat(expiration_date), 
+            registration_no,
+            registration_dt,
+            expiration_dt,
             registration_status,
             license_no,
             plate_no
@@ -508,11 +547,10 @@ async def add_registration(
 
         if success:
             return RedirectResponse(url="/registrations", status_code=303)
-        else:
-            return "Error saving to database", 500
+        return redirect_with_flash("/registrations", error="Error saving to database")
     except Exception as e:
-        print(f"Validation or Database Error: {e}")
-        return f"Error: {e}", 400
+        print(f"Registration add error: {e}")
+        return redirect_with_flash("/registrations", error=f"Error saving to database: {e}")
 
 @app.get("/registrations/search")
 async def search_registration(request: Request, query: str, curr=Depends(get_db)):
@@ -556,42 +594,59 @@ async def update_registration_route(
     plate_no: str = Form(None),
     curr=Depends(get_db)
 ):
-    from models.registration import Registration
-
     # Validate license_no and plate_no formats if they are provided
     if license_no and not isLicenseNumberValid(license_no):
-        return "Invalid license number format. Expected format: AAA-YY-CCCCCC", 400
+        return redirect_with_flash(
+            "/registrations",
+            error="Invalid license number format. Expected format: AAA-YY-CCCCCC"
+        )
     if plate_no and not isPlateNumberValid(plate_no):
-        return "Invalid plate number format. Expected format: AAA-1234", 400
+        return redirect_with_flash(
+            "/registrations",
+            error="Invalid plate number format. Expected format: AAA-1234"
+        )
 
-    print("Validation passed, creating Registration object")
+    try:
+        registration_dt = Date.fromisoformat(registration_date)
+    except ValueError as e:
+        return redirect_with_flash(
+            "/registrations",
+            error=f"Invalid registration date format. Expected YYYY-MM-DD. {e}"
+        )
 
-    
-    # Instantiate model with data from form
-    reg = Registration(
-        registration_no, 
-        Date.fromisoformat(registration_date), 
-        Date.fromisoformat(expiration_date), 
-        registration_status,
-        license_no,
-        plate_no
-    )
+    try:
+        expiration_dt = Date.fromisoformat(expiration_date)
+    except ValueError as e:
+        return redirect_with_flash(
+            "/registrations",
+            error=f"Invalid expiration date format. Expected YYYY-MM-DD. {e}"
+        )
 
-    # Call DAO update
-    success = registration_dao.update_registration(curr, reg)
+    try:
+        reg = Registration(
+            registration_no,
+            registration_dt,
+            expiration_dt,
+            registration_status,
+            license_no,
+            plate_no
+        )
 
-    if success:
-        return RedirectResponse(url="/registrations", status_code=303)
-    else:
-        return "Error updating registration", 500
+        success = registration_dao.update_registration(curr, reg)
+
+        if success:
+            return RedirectResponse(url="/registrations", status_code=303)
+        return redirect_with_flash("/registrations", error="Error updating registration")
+    except Exception as e:
+        print(f"Registration update error: {e}")
+        return redirect_with_flash("/registrations", error=f"Error updating registration: {e}")
     
 @app.post("/registrations/{registration_no}/delete")
 async def delete_registration(registration_no: int, curr=Depends(get_db)):
     success = registration_dao.delete_registration(curr, registration_no)
     if success:
         return RedirectResponse(url="/registrations", status_code=303)
-    else:
-        return "Error deleting registration", 500
+    return redirect_with_flash("/registrations", error="Error deleting registration")
 
 # --- REPORT 1: DEMOGRAPHIC DRIVER FILTERING ---
 @app.get("/reports/drivers-filtered", response_class=HTMLResponse)
@@ -604,83 +659,171 @@ async def report_drivers_filtered(
     sex: str = "",
     curr=Depends(get_db)
 ):
-    drivers = reports_dao.drivers_filtered_query(
-        curr, license_type, license_status, age_min, age_max, sex
-    )
-    # Handle None cleanly by falling back to an empty list
-    content = [d.serialize() for d in drivers] if drivers else []
-    
-    return templates.TemplateResponse(
-        request=request,
-        name="reports.html",
-        context={
-            "active_report": "drivers_filtered",
-            "title": "Demographic Driver Filtering Results",
-            "filters": {
-                "license_type": license_type,
-                "license_status": license_status,
-                "age_min": age_min,
-                "age_max": age_max,
-                "sex": sex
-            },
-            "content_list": content
-        }
-    )
+    try:
+        drivers = reports_dao.drivers_filtered_query(
+            curr, license_type, license_status, age_min, age_max, sex
+        )
+        content = [d.serialize() for d in drivers] if drivers else []
+
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "drivers_filtered",
+                "title": "Demographic Driver Filtering Results",
+                "filters": {
+                    "license_type": license_type,
+                    "license_status": license_status,
+                    "age_min": age_min,
+                    "age_max": age_max,
+                    "sex": sex
+                },
+                "content_list": content
+            }
+        )
+    except Exception as e:
+        print(f"Report drivers_filtered error: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "drivers_filtered",
+                "title": "Demographic Driver Filtering Results",
+                "filters": {
+                    "license_type": license_type,
+                    "license_status": license_status,
+                    "age_min": age_min,
+                    "age_max": age_max,
+                    "sex": sex
+                },
+                "content_list": [],
+                "error": f"Error loading driver report: {e}"
+            }
+        )
 
 # --- REPORT 2: VEHICLES BY DRIVER OWNER LINK ---
 @app.get("/reports/vehicles-by-driver", response_class=HTMLResponse)
 async def report_vehicles_by_driver(request: Request, license_no: str = None, curr=Depends(get_db)):
-    content = []
-    if license_no:
+    if not license_no:
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "vehicles_by_driver",
+                "title": "Fleet Tracking by Owner",
+                "filters": {"license_no": license_no},
+                "content_list": [],
+                "error": "License number is required for this report."
+            }
+        )
+
+    try:
         vehicles = reports_dao.vehicles_by_driver_query(curr, license_no)
         content = [v.serialize() for v in vehicles] if vehicles else []
 
-    return templates.TemplateResponse(
-        request=request,
-        name="reports.html",
-        context={
-            "active_report": "vehicles_by_driver",
-            "title": f"Fleet Summary — License Holder #{license_no}" if license_no else "Fleet Tracking by Owner",
-            "filters": {"license_no": license_no},
-            "content_list": content
-        }
-    )
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "vehicles_by_driver",
+                "title": f"Fleet Summary — License Holder #{license_no}",
+                "filters": {"license_no": license_no},
+                "content_list": content
+            }
+        )
+    except Exception as e:
+        print(f"Report vehicles_by_driver error: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "vehicles_by_driver",
+                "title": f"Fleet Summary — License Holder #{license_no}",
+                "filters": {"license_no": license_no},
+                "content_list": [],
+                "error": f"Error loading vehicles-by-driver report: {e}"
+            }
+        )
 
 # --- REPORT 3: EXPIRED REGISTRATIONS AS OF DATE ---
 @app.get("/reports/expired-registrations", response_class=HTMLResponse)
 async def report_expired_registrations(request: Request, as_of_date: str = None, curr=Depends(get_db)):
-    content = []
     if as_of_date:
-        vehicles = reports_dao.expired_registrations_query(curr, as_of_date)
-        content = [v.serialize() for v in vehicles] if vehicles else []
+        try:
+            Date.fromisoformat(as_of_date)
+        except ValueError as e:
+            return templates.TemplateResponse(
+                request=request,
+                name="reports.html",
+                context={
+                    "active_report": "expired_registrations",
+                    "title": "Expired Registrations as of Date",
+                    "filters": {"as_of_date": as_of_date},
+                    "content_list": [],
+                    "error": f"Invalid as-of date format. Expected YYYY-MM-DD. {e}"
+                }
+            )
 
-    return templates.TemplateResponse(
-        request=request,
-        name="reports.html",
-        context={
-            "active_report": "expired_registrations",
-            "title": f"Expired Registrations as of {as_of_date}",
-            "filters": {"as_of_date": as_of_date},
-            "content_list": content
-        }
-    )
+    try:
+        content = []
+        if as_of_date:
+            vehicles = reports_dao.expired_registrations_query(curr, as_of_date)
+            content = [v.serialize() for v in vehicles] if vehicles else []
+
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "expired_registrations",
+                "title": f"Expired Registrations as of {as_of_date}" if as_of_date else "Expired Registrations as of Date",
+                "filters": {"as_of_date": as_of_date},
+                "content_list": content
+            }
+        )
+    except Exception as e:
+        print(f"Report expired_registrations error: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "expired_registrations",
+                "title": f"Expired Registrations as of {as_of_date}" if as_of_date else "Expired Registrations as of Date",
+                "filters": {"as_of_date": as_of_date},
+                "content_list": [],
+                "error": f"Error loading expired registrations report: {e}"
+            }
+        )
 
 # --- REPORT 4: DRIVERS WITH EXPIRED OR SUSPENDED STATUS ---
 @app.get("/reports/invalid-licenses", response_class=HTMLResponse)
 async def report_invalid_licenses(request: Request, curr=Depends(get_db)):
-    drivers = reports_dao.drivers_with_expired_or_suspended_licenses_query(curr)
-    content = [d.serialize() for d in drivers] if drivers else []
+    try:
+        drivers = reports_dao.drivers_with_expired_or_suspended_licenses_query(curr)
+        content = [d.serialize() for d in drivers] if drivers else []
 
-    return templates.TemplateResponse(
-        request=request,
-        name="reports.html",
-        context={
-            "active_report": "invalid_licenses",
-            "title": "Non-Compliant Invalid Licenses Registry",
-            "filters": {},
-            "content_list": content
-        }
-    )
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "invalid_licenses",
+                "title": "Non-Compliant Invalid Licenses Registry",
+                "filters": {},
+                "content_list": content
+            }
+        )
+    except Exception as e:
+        print(f"Report invalid_licenses error: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "invalid_licenses",
+                "title": "Non-Compliant Invalid Licenses Registry",
+                "filters": {},
+                "content_list": [],
+                "error": f"Error loading invalid licenses report: {e}"
+            }
+        )
 
 # --- REPORT 5: VIOLATIONS BY DRIVER WINDOW TIMELINE ---
 @app.get("/reports/violations-range", response_class=HTMLResponse)
@@ -691,58 +834,153 @@ async def report_violations_range(
     end_date: str = None, 
     curr=Depends(get_db)
 ):
-    content = []
-    if license_no and start_date and end_date:
+    if not license_no or not start_date or not end_date:
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "violations_range",
+                "title": f"Violations Timeline — Driver #{license_no}" if license_no else "Driver Violation Window Metrics",
+                "filters": {"license_no": license_no, "start_date": start_date, "end_date": end_date},
+                "content_list": [],
+                "error": "License number, start date, and end date are required for this report."
+            }
+        )
+
+    try:
+        Date.fromisoformat(start_date)
+        Date.fromisoformat(end_date)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "violations_range",
+                "title": f"Violations Timeline — Driver #{license_no}",
+                "filters": {"license_no": license_no, "start_date": start_date, "end_date": end_date},
+                "content_list": [],
+                "error": f"Invalid date range format. Expected YYYY-MM-DD. {e}"
+            }
+        )
+
+    try:
         violations = reports_dao.violations_by_driver_date_range_query(curr, license_no, start_date, end_date)
         content = [v.serialize() for v in violations] if violations else []
 
-    return templates.TemplateResponse(
-        request=request,
-        name="reports.html",
-        context={
-            "active_report": "violations_range",
-            "title": f"Violations Timeline — Driver #{license_no}",
-            "filters": {"license_no": license_no, "start_date": start_date, "end_date": end_date},
-            "content_list": content
-        }
-    )
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "violations_range",
+                "title": f"Violations Timeline — Driver #{license_no}",
+                "filters": {"license_no": license_no, "start_date": start_date, "end_date": end_date},
+                "content_list": content
+            }
+        )
+    except Exception as e:
+        print(f"Report violations_range error: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "violations_range",
+                "title": f"Violations Timeline — Driver #{license_no}",
+                "filters": {"license_no": license_no, "start_date": start_date, "end_date": end_date},
+                "content_list": [],
+                "error": f"Error loading violations timeline report: {e}"
+            }
+        )
 
 # --- REPORT 6: VIOLATION TYPE COUNTS BY ANNUAL AGGREGATION ---
 @app.get("/reports/violation-aggregates", response_class=HTMLResponse)
 async def report_violation_aggregates(request: Request, year: str = "2026", curr=Depends(get_db)):
-    # This query directly returns raw aggregated database tuples: (violation_type, count)
-    raw_data = reports_dao.violations_count_by_type_for_year_query(curr, year)
-    rows = raw_data if raw_data else []
+    try:
+        int(year)
+    except ValueError as e:
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "violation_aggregates",
+                "title": "Violation Volume Breakdown by Year",
+                "filters": {"year": year},
+                "raw_data_rows": [],
+                "error": f"Invalid year. Expected a four-digit number. {e}"
+            }
+        )
 
-    return templates.TemplateResponse(
-        request=request,
-        name="reports.html",
-        context={
-            "active_report": "violation_aggregates",
-            "title": f"Violation Volume Breakdown for Year {year}",
-            "filters": {"year": year},
-            "raw_data_rows": rows
-        }
-    )
+    try:
+        # This query directly returns raw aggregated database tuples: (violation_type, count)
+        raw_data = reports_dao.violations_count_by_type_for_year_query(curr, year)
+        rows = raw_data if raw_data else []
+
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "violation_aggregates",
+                "title": f"Violation Volume Breakdown for Year {year}",
+                "filters": {"year": year},
+                "raw_data_rows": rows
+            }
+        )
+    except Exception as e:
+        print(f"Report violation_aggregates error: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "violation_aggregates",
+                "title": f"Violation Volume Breakdown for Year {year}",
+                "filters": {"year": year},
+                "raw_data_rows": [],
+                "error": f"Error loading violation aggregates report: {e}"
+            }
+        )
 
 # --- REPORT 7: VEHICLES IN VIOLATIONS BY REGIONAL LOCALITY ---
 @app.get("/reports/regional-incidents", response_class=HTMLResponse)
 async def report_regional_incidents(request: Request, location: str = "", curr=Depends(get_db)):
-    content = []
-    if location:
+    if not location:
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "regional_incidents",
+                "title": "Vehicular Incident Hotspots",
+                "filters": {"location": location},
+                "content_list": [],
+                "error": "Location is required for this report."
+            }
+        )
+
+    try:
         vehicles = reports_dao.vehicles_in_violations_by_region_query(curr, location)
         content = [v.serialize() for v in vehicles] if vehicles else []
 
-    return templates.TemplateResponse(
-        request=request,
-        name="reports.html",
-        context={
-            "active_report": "regional_incidents",
-            "title": f"Vehicular Incident Hotspots: '{location}'",
-            "filters": {"location": location},
-            "content_list": content
-        }
-    )
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "regional_incidents",
+                "title": f"Vehicular Incident Hotspots: '{location}'",
+                "filters": {"location": location},
+                "content_list": content
+            }
+        )
+    except Exception as e:
+        print(f"Report regional_incidents error: {e}")
+        return templates.TemplateResponse(
+            request=request,
+            name="reports.html",
+            context={
+                "active_report": "regional_incidents",
+                "title": f"Vehicular Incident Hotspots: '{location}'",
+                "filters": {"location": location},
+                "content_list": [],
+                "error": f"Error loading regional incidents report: {e}"
+            }
+        )
 
 
 if __name__ == "__main__":
