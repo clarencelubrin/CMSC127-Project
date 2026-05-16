@@ -216,8 +216,6 @@
                     <div class="col-md-3"><label class="form-label">Year</label><input type="number" name="year" class="form-control"></div>
                     <div class="col-md-6"><label class="form-label">Model</label><input type="text" name="model" class="form-control"></div>
                     <div class="col-md-6"><label class="form-label">Make</label><input type="text" name="make" class="form-control"></div>
-                    <!-- <div class="col-md-6"><label class="form-label">Registration No. (FK)</label><input type="number" name="registration_no" class="form-control"></div> -->
-                    <!-- <div class="col-md-6"><label class="form-label">License No. (FK)</label><input type="text" name="license_no" class="form-control"></div> -->
 
                 {# VIOLATION FIELDS #}
                 {% elif type == 'violation' %}
@@ -232,8 +230,8 @@
                             <option value="Unpaid">Unpaid</option><option value="Paid">Paid</option><option value="Contested">Contested</option>
                         </select>
                     </div>
-                    <div class="col-md-6"><label class="form-label">License No. (FK)</label><input type="text" name="license_no" class="form-control" required></div>
-                    <div class="col-md-6"><label class="form-label">Plate No. (FK)</label><input type="text" name="plate_no" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label">License No. (FK)</label><input type="text" name="license_no" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Plate No. (FK)</label><input type="text" name="plate_no" class="form-control"></div>
                     <div class="col-md-12">
                         <label class="form-label">Violation Types (comma-separated)</label>
                         <input type="text" name="violation_types" class="form-control" placeholder="e.g. Speeding, Illegal Parking">

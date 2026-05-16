@@ -327,8 +327,6 @@ async def add_violation(
     curr=Depends(get_db)
 ):
     try:
-        # Check if plate_no and license_no in correct format
-
         # convert comma-separated violation types into list of ViolationType objects
         vt_list = []
         if violation_types:

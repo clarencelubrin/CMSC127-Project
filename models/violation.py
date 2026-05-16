@@ -9,8 +9,8 @@ class Violation(BaseModel):
     corresponding_fine_amount: float
     apprehending_officer: str
     violation_status: str
-    license_no: str
-    plate_no: str
+    license_no: str | None = None
+    plate_no: str | None = None
     violation_types: list[ViolationType] | None = [] # List of ViolationType objects, can be empty or null
 
     def __init__(self, 
@@ -41,7 +41,6 @@ class Violation(BaseModel):
     @staticmethod
     def get_headers():
         return ("Violation ID", "Date", "Location", "Corresponding Fine Amount", "Apprehending Officer", "Violation Status", "License No", "Plate No", "Violation Types")
-    
     
     def serialize(self):
         data = self.model_dump() if hasattr(self, 'model_dump') else self.dict()
