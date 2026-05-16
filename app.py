@@ -1,6 +1,6 @@
 import os
+from urllib.parse import quote_plus
 from sqlite3 import Date
-from turtle import color
 from fastapi import FastAPI, Request, Form, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -27,6 +27,18 @@ from dao import reports_dao
 load_dotenv()
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+
+# Builds a 303 redirect to the given URL with optional ?error= or ?success= flash message params.
+
+def redirect_with_flash(target_url: str, *, error: str = None, success: str = None):
+    params = []
+    if error:
+        params.append(f"error={quote_plus(error)}")
+    if success:
+        params.append(f"success={quote_plus(success)}")
+
+    url = target_url if not params else f"{target_url}?{'&'.join(params)}"
+    return RedirectResponse(url=url, status_code=303)
 
 # Database Dependency
 def get_db():
