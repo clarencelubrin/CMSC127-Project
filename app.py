@@ -119,7 +119,7 @@ async def add_driver(
         success = driver_dao.create_driver(curr, new_driver)
 
         if success:
-            return RedirectResponse(url="/drivers", status_code=303)
+            return redirect_with_flash("/drivers", success="Driver saved successfully")
         return redirect_with_flash("/drivers", error="Error saving to database")
     except Exception as e:
         print(f"Driver add error: {e}")
@@ -160,7 +160,7 @@ async def search_driver(request: Request, query: str, curr=Depends(get_db)):
 async def delete_driver(license_no: str, curr=Depends(get_db)):
     success = driver_dao.delete_driver(curr, license_no)
     if success:
-        return RedirectResponse(url="/drivers", status_code=303)
+        return redirect_with_flash("/drivers", success="Driver deleted successfully")
     return redirect_with_flash("/drivers", error="Error deleting driver")
 
 @app.post("/drivers/update")
@@ -198,7 +198,7 @@ async def update_driver_route(
         # DAO expects tuple in specific order for UPDATE SQL
         success = driver_dao.update_driver(curr, driver)
         if success:
-            return RedirectResponse(url="/drivers", status_code=303)
+            return redirect_with_flash("/drivers", success="Driver updated successfully")
         return redirect_with_flash("/drivers", error="Error updating driver")
     except Exception as e:
         print(f"Driver update error: {e}")
@@ -252,7 +252,7 @@ async def add_vehicle(
         success = vehicle_dao.create_vehicle(curr, new_vehicle)
 
         if success:
-            return RedirectResponse(url="/vehicles", status_code=303)
+            return redirect_with_flash("/vehicles", success="Vehicle saved successfully")
         return redirect_with_flash("/vehicles", error="Error saving to database")
     except Exception as e:
         print(f"Vehicle add error: {e}")
@@ -293,7 +293,7 @@ async def search_vehicle(request: Request, query: str, curr=Depends(get_db)):
 async def delete_vehicle(plate_no: str, curr=Depends(get_db)):
     success = vehicle_dao.delete_vehicle(curr, plate_no)
     if success:
-        return RedirectResponse(url="/vehicles", status_code=303)
+        return redirect_with_flash("/vehicles", success="Vehicle deleted successfully")
     return redirect_with_flash("/vehicles", error="Error deleting vehicle")
 
 @app.post("/vehicles/update")
@@ -323,7 +323,7 @@ async def update_vehicle_route(
         )
         success = vehicle_dao.update_vehicle(curr, vehicle)
         if success:
-            return RedirectResponse(url="/vehicles", status_code=303)
+            return redirect_with_flash("/vehicles", success="Vehicle updated successfully")
         return redirect_with_flash("/vehicles", error="Error updating vehicle")
     except Exception as e:
         print(f"Vehicle update error: {e}")
@@ -387,7 +387,7 @@ async def add_violation(
         success = violation_dao.create_violation(curr, new_violation)
 
         if success:
-            return RedirectResponse(url="/violations", status_code=303)
+            return redirect_with_flash("/violations", success="Violation saved successfully")
         return redirect_with_flash("/violations", error="Error saving to database")
     except Exception as e:
         print(f"Violation add error: {e}")
@@ -430,7 +430,7 @@ async def update_violation_route(
         success = violation_dao.update_violation(curr, new_violation)
 
         if success:
-            return RedirectResponse(url="/violations", status_code=303)
+            return redirect_with_flash("/violations", success="Violation updated successfully")
         return redirect_with_flash("/violations", error="Error saving to database")
     except Exception as e:
         print(f"Violation update error: {e}")
@@ -441,7 +441,7 @@ async def update_violation_route(
 async def delete_violation(violation_id: int, curr=Depends(get_db)):
     success = violation_dao.delete_violation(curr, violation_id)
     if success:
-        return RedirectResponse(url="/violations", status_code=303)
+        return redirect_with_flash("/violations", success="Violation deleted successfully")
     return redirect_with_flash("/violations", error="Error deleting violation")
 
 @app.get("/violations/search")
@@ -546,7 +546,7 @@ async def add_registration(
         success = registration_dao.create_registration(curr, reg)
 
         if success:
-            return RedirectResponse(url="/registrations", status_code=303)
+            return redirect_with_flash("/registrations", success="Registration saved successfully")
         return redirect_with_flash("/registrations", error="Error saving to database")
     except Exception as e:
         print(f"Registration add error: {e}")
@@ -635,7 +635,7 @@ async def update_registration_route(
         success = registration_dao.update_registration(curr, reg)
 
         if success:
-            return RedirectResponse(url="/registrations", status_code=303)
+            return redirect_with_flash("/registrations", success="Registration updated successfully")
         return redirect_with_flash("/registrations", error="Error updating registration")
     except Exception as e:
         print(f"Registration update error: {e}")
@@ -645,7 +645,7 @@ async def update_registration_route(
 async def delete_registration(registration_no: int, curr=Depends(get_db)):
     success = registration_dao.delete_registration(curr, registration_no)
     if success:
-        return RedirectResponse(url="/registrations", status_code=303)
+        return redirect_with_flash("/registrations", success="Registration deleted successfully")
     return redirect_with_flash("/registrations", error="Error deleting registration")
 
 # --- REPORT 1: DEMOGRAPHIC DRIVER FILTERING ---
