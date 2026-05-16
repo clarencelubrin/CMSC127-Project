@@ -28,8 +28,7 @@ load_dotenv()
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# Builds a 303 redirect to the given URL with optional ?error= or ?success= flash message params.
-
+# Builds a 303 redirect to the given URL with optional ?error= or ?success= erorr message params.
 def redirect_with_flash(target_url: str, *, error: str = None, success: str = None):
     params = []
     if error:
@@ -97,27 +96,34 @@ async def add_driver(
     registration_no: int = Form(None), # Optional, can be empty
     curr=Depends(get_db)
 ):
+    if not isLicenseNumberValid(license_no):
+        return redirect_with_flash(
+            "/drivers",
+            error="Invalid license number format. Expected format: AAA-YY-CCCCCC"
+        )
+
     try:
         dob = Date.fromisoformat(date_of_birth)
+    except ValueError as e:
+        return redirect_with_flash(
+            "/drivers",
+            error=f"Invalid date of birth format. Expected YYYY-MM-DD. {e}"
+        )
 
-        if not isLicenseNumberValid(license_no):
-            return "Invalid license number format. Expected format: AAA-YY-CCCCCC", 400
-  
+    try:
         new_driver = Driver(
-            license_no, full_name, license_type, license_status, 
+            license_no, full_name, license_type, license_status,
             address, sex, dob, registration_no
         )
-        
+
         success = driver_dao.create_driver(curr, new_driver)
-        
+
         if success:
             return RedirectResponse(url="/drivers", status_code=303)
-        else:
-            return "Error saving to database", 500
-            
+        return redirect_with_flash("/drivers", error="Error saving to database")
     except Exception as e:
-        print(f"Validation or Database Error: {e}")
-        return f"Error: {e}", 400
+        print(f"Driver add error: {e}")
+        return redirect_with_flash("/drivers", error=f"Error saving to database: {e}")
     
 @app.get("/drivers/search")
 async def search_driver(request: Request, query: str, curr=Depends(get_db)):
@@ -155,8 +161,7 @@ async def delete_driver(license_no: str, curr=Depends(get_db)):
     success = driver_dao.delete_driver(curr, license_no)
     if success:
         return RedirectResponse(url="/drivers", status_code=303)
-    else:
-        return "Error deleting driver", 500
+    return redirect_with_flash("/drivers", error="Error deleting driver")
 
 @app.post("/drivers/update")
 async def update_driver_route(
@@ -170,22 +175,34 @@ async def update_driver_route(
     registration_no: str = Form(None), # Optional
     curr=Depends(get_db)
 ):
-    from models.driver import Driver
-
     if not isLicenseNumberValid(license_no):
-        return "Invalid license number format. Expected format: AAA-YY-CCCCCC", 400
-    
-    # Create driver object
-    driver = Driver(
-        license_no, full_name, license_type, license_status, 
-        address, sex, Date.fromisoformat(date_of_birth), registration_no
-    )
-    # DAO expects tuple in specific order for UPDATE SQL
-    success = driver_dao.update_driver(curr, driver)
-    if success:
-        return RedirectResponse(url="/drivers", status_code=303)
-    else:
-        return "Error updating driver", 500
+        return redirect_with_flash(
+            "/drivers",
+            error="Invalid license number format. Expected format: AAA-YY-CCCCCC"
+        )
+
+    try:
+        dob = Date.fromisoformat(date_of_birth)
+    except ValueError as e:
+        return redirect_with_flash(
+            "/drivers",
+            error=f"Invalid date of birth format. Expected YYYY-MM-DD. {e}"
+        )
+
+    try:
+        # Create driver object
+        driver = Driver(
+            license_no, full_name, license_type, license_status,
+            address, sex, dob, registration_no
+        )
+        # DAO expects tuple in specific order for UPDATE SQL
+        success = driver_dao.update_driver(curr, driver)
+        if success:
+            return RedirectResponse(url="/drivers", status_code=303)
+        return redirect_with_flash("/drivers", error="Error updating driver")
+    except Exception as e:
+        print(f"Driver update error: {e}")
+        return redirect_with_flash("/drivers", error=f"Error updating driver: {e}")
     
 # VEHICLE MANAGEMENT
 @app.get("/vehicles")
