@@ -26,5 +26,16 @@ chmod +x init.sh
 
 Run the init script
 ```
-sudo init.sh
+sudo ./init.sh
+```
+or
+```
+sudo bash <ROOT_LOCATION_OF_REPOSITORY>/init.sh
+```
+
+## Run the server
+
+Start the server
+```
+uvicorn app:app --reload
 ```
