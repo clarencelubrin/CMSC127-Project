@@ -1,0 +1,16 @@
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead>
+            <tr><th>Violation Type Category Descriptor</th><th class="text-end">Total Logged Instances Count</th></tr>
+        </thead>
+        <tbody>
+            {% if raw_data_rows %}
+                {% for group in raw_data_rows %}
+                <tr><td class="fw-semibold text-secondary">{{ group[0] }}</td><td class="text-end fw-bold text-primary">{{ group[1] }}</td></tr>
+                {% endfor %}
+            {% else %}
+                <tr><td colspan="2" class="text-center text-muted py-4">No data returned for target annual parameter.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

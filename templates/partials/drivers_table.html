@@ -1,0 +1,24 @@
+<div class="table-responsive">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr><th>License No</th><th>Full Name</th><th>Type</th><th>Status</th><th>Address</th><th>Sex</th><th>Date of Birth</th></tr>
+        </thead>
+        <tbody>
+            {% if content_list and active_report in ['drivers_filtered', 'invalid_licenses'] %}
+                {% for item in content_list %}
+                <tr style="cursor: pointer;" onclick="window.location.href='/drivers/{{ item.license_no }}'">
+                    <td class="fw-bold text-primary">{{ item.license_no }}</td>
+                    <td>{{ item.full_name }}</td>
+                    <td>{{ item.license_type }}</td>
+                    <td><span class="status-{{ item.license_status | lower }}">{{ item.license_status }}</span></td>
+                    <td>{{ item.address }}</td>
+                    <td>{{ item.sex }}</td>
+                    <td>{{ item.date_of_birth }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No driver entries match your search parameters.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

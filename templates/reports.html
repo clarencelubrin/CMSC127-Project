@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LTO System Reports | Traffic Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f4f6f9; color: #333; }
+        .navbar { background-color: #212529; box-shadow: 0 2px 4px rgba(0,0,0,.1); }
+        .sidebar-card { background: white; border: none; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
+        .report-card { background: white; border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); display: none; }
+        .report-card.active { display: block; }
+        .nav-pills .nav-link { color: #475569; font-weight: 500; border-radius: 8px; margin-bottom: 5px; text-align: left; }
+        .nav-pills .nav-link.active { background-color: #3b82f6; color: white; }
+        .table-responsive { border: none; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden; }
+        .table-responsive  thead { background-color: #e9ecef; }
+
+        .status-valid, .status-active, .status-paid { color: #10b981; font-weight: 600; }
+        .status-expired, .status-unpaid, .status-revoked { color: #ef4444; font-weight: 600; }
+        .status-suspended { color: #f59e0b; font-weight: 600; }
+    </style>
+    <script>
+        function switchReport(reportId) {
+            // Hide all active reports
+            document.querySelectorAll('.report-card').forEach(card => card.classList.remove('active'));
+            // Remove active highlights from navigation pill layout selection buttons
+            document.querySelectorAll('.sidebar-nav-link').forEach(link => link.classList.remove('active'));
+            
+            // Activate selected template block
+            document.getElementById(reportId).classList.add('active');
+            document.getElementById(reportId + '-nav').classList.add('active');
+        }
+    </script>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark mb-4">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold" href="/">LTO Management Analytics</a>
+        <div class="navbar-nav ms-auto">
+            <a class="nav-link" href="/drivers">Core Registry</a>
+            <a class="nav-link" href="/vehicles">Vehicles</a>
+            <a class="nav-link" href="/registrations">Registry</a>
+            <a class="nav-link" href="/violations">Violations</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid px-4">
+    <div class="row">
+        <div class="col-lg-3 mb-4">
+            <div class="card sidebar-card p-3">
+                <h5 class="fw-bold text-secondary mb-3 px-2">SQL Reports</h5>
+                <div class="nav flex-column nav-pills">
+                    <button class="nav-link sidebar-nav-link {{ 'active' if active_report == 'drivers_filtered' or not active_report }}" id="drivers_filtered-nav" onclick="switchReport('drivers_filtered')">📋 Demographic Drivers</button>
+                    <button class="nav-link sidebar-nav-link {{ 'active' if active_report == 'vehicles_by_driver' }}" id="vehicles_by_driver-nav" onclick="switchReport('vehicles_by_driver')">🚗 Vehicles by Owner</button>
+                    <button class="nav-link sidebar-nav-link {{ 'active' if active_report == 'expired_registrations' }}" id="expired_registrations-nav" onclick="switchReport('expired_registrations')">⚠️ Expired Fleet Registries</button>
+                    <button class="nav-link sidebar-nav-link {{ 'active' if active_report == 'invalid_licenses' }}" id="invalid_licenses-nav" onclick="switchReport('invalid_licenses')">❌ Expired/Suspended Licenses</button>
+                    <button class="nav-link sidebar-nav-link {{ 'active' if active_report == 'violations_range' }}" id="violations_range-nav" onclick="switchReport('violations_range')">⏱️ Violations Date Window</button>
+                    <button class="nav-link sidebar-nav-link {{ 'active' if active_report == 'violation_aggregates' }}" id="violation_aggregates-nav" onclick="switchReport('violation_aggregates')">📊 Violation Metric Volumes</button>
+                    <button class="nav-link sidebar-nav-link {{ 'active' if active_report == 'regional_incidents' }}" id="regional_incidents-nav" onclick="switchReport('regional_incidents')">📍 Incident Hotspots by Region</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-9">
+            
+            {# DRIVERS FILTERED REPORT #}
+            <div class="card report-card p-4 {{ 'active' if active_report == 'drivers_filtered' or not active_report }}" id="drivers_filtered">
+                <h4 class="fw-bold mb-3">Demographic Driver Filtering</h4>
+                <form action="/reports/drivers-filtered" method="get" class="row g-3 mb-4 p-3 bg-light rounded">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">License Type</label>
+                        <select name="license_type" class="form-select">
+                            <option value="" {% if not filters.license_type %}selected{% endif %}>All Types</option>
+                            <option value="Professional" {% if filters.license_type == 'Professional' %}selected{% endif %}>Professional</option>
+                            <option value="Non-Professional" {% if filters.license_type == 'Non-Professional' %}selected{% endif %}>Non-Professional</option>
+                            <option value="Student Permit" {% if filters.license_type == 'Student Permit' %}selected{% endif %}>Student Permit</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">License Status</label>
+                        <select name="license_status" class="form-select">
+                            <option value="" {% if not filters.license_status %}selected{% endif %}>All Statuses</option>
+                            <option value="Valid" {% if filters.license_status == 'Valid' %}selected{% endif %}>Valid</option>
+                            <option value="Expired" {% if filters.license_status == 'Expired' %}selected{% endif %}>Expired</option>
+                            <option value="Suspended" {% if filters.license_status == 'Suspended' %}selected{% endif %}>Suspended</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2"><label class="form-label small fw-bold">Min Age</label><input type="number" name="age_min" class="form-control" value="{{ filters.age_min or 18 }}"></div>
+                    <div class="col-md-2"><label class="form-label small fw-bold">Max Age</label><input type="number" name="age_max" class="form-control" value="{{ filters.age_max or 80 }}"></div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Sex</label>
+                        <select name="sex" class="form-select">
+                            <option value="" {% if not filters.sex %}selected{% endif %}>All</option>
+                            <option value="M" {% if filters.sex == 'M' %}selected{% endif %}>Male</option>
+                            <option value="F" {% if filters.sex == 'F' %}selected{% endif %}>Female</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-end"><button type="submit" class="btn btn-primary w-100">Query Database</button></div>
+                </form>
+                {% include 'partials/drivers_table.html' %}
+            </div>
+
+            {# VEHICLES BY DRIVER OWNER LINK #}
+            <div class="card report-card p-4 {{ 'active' if active_report == 'vehicles_by_driver' }}" id="vehicles_by_driver">
+                <h4 class="fw-bold mb-3">Fleet Tracking by Owner</h4>
+                <form action="/reports/vehicles-by-driver" method="get" class="row g-2 mb-4 p-3 bg-light rounded">
+                    <div class="col-md-9"><input type="text" name="license_no" class="form-control" placeholder="Target Driver License Number..." value="{{ filters.license_no or '' }}" required></div>
+                    <div class="col-md-3"><button type="submit" class="btn btn-primary w-100">Fetch Assets</button></div>
+                </form>
+                {% include 'partials/vehicles_table.html' %}
+            </div>
+
+            {# EXPIRED REGISTRATIONS AS OF DATE #}
+            <div class="card report-card p-4 {{ 'active' if active_report == 'expired_registrations' }}" id="expired_registrations">
+                <h4 class="fw-bold mb-3">Expired Fleet Vehicle Registries</h4>
+                <form action="/reports/expired-registrations" method="get" class="row g-2 mb-4 p-3 bg-light rounded">
+                    <div class="col-md-9"><input type="date" name="as_of_date" class="form-control" value="{{ filters.as_of_date or '' }}" required></div>
+                    <div class="col-md-3"><button type="submit" class="btn btn-primary w-100">Isolate Expired</button></div>
+                </form>
+                {% include 'partials/vehicles_table.html' %}
+            </div>
+
+            {# DRIVERS WITH EXPIRED OR SUSPENDED STATUS #}
+            <div class="card report-card p-4 {{ 'active' if active_report == 'invalid_licenses' }}" id="invalid_licenses">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h4 class="fw-bold m-0">Non-Compliant Invalid Licenses Registry</h4>
+                    <form action="/reports/invalid-licenses" method="get"><button type="submit" class="btn btn-danger">Execute Fresh Run</button></form>
+                </div>
+                {% include 'partials/drivers_table.html' %}
+            </div>
+
+            {# VIOLATIONS BY DRIVER WINDOW TIMELINE #}
+            <div class="card report-card p-4 {{ 'active' if active_report == 'violations_range' }}" id="violations_range">
+                <h4 class="fw-bold mb-3">Driver Violation Window Metrics</h4>
+                <form action="/reports/violations-range" method="get" class="row g-3 mb-4 p-3 bg-light rounded">
+                    <div class="col-md-4"><label class="form-label small fw-bold">License Number</label><input type="text" name="license_no" class="form-control" value="{{ filters.license_no or '' }}" required></div>
+                    <div class="col-md-4"><label class="form-label small fw-bold">Start Date</label><input type="date" name="start_date" class="form-control" value="{{ filters.start_date or '' }}" required></div>
+                    <div class="col-md-4"><label class="form-label small fw-bold">End Date</label><input type="date" name="end_date" class="form-control" value="{{ filters.end_date or '' }}" required></div>
+                    <div class="col-md-12"><button type="submit" class="btn btn-primary w-100">Scan Timeline Window</button></div>
+                </form>
+                {% include 'partials/violations_table.html' %}
+            </div>
+
+            {# VIOLATION TYPE COUNTS BY ANNUAL AGGREGATION #}
+            <div class="card report-card p-4 {{ 'active' if active_report == 'violation_aggregates' }}" id="violation_aggregates">
+                <h4 class="fw-bold mb-3">Violation Aggregation Matrix by Volume</h4>
+                <form action="/reports/violation-aggregates" method="get" class="row g-2 mb-4 p-3 bg-light rounded">
+                    <div class="col-md-9"><input type="number" min="1900" max="2100" name="year" class="form-control" placeholder="Target Evaluation Year (e.g., 2026)..." value="{{ filters.year or '2026' }}" required></div>
+                    <div class="col-md-3"><button type="submit" class="btn btn-primary w-100">Sum Counts</button></div>
+                </form>
+                {% include 'partials/violation_aggregates_table.html' %}
+            </div>
+
+            {# VEHICLES IN VIOLATIONS BY REGIONAL LOCALITY HOTSPOT #}
+            <div class="card report-card p-4 {{ 'active' if active_report == 'regional_incidents' }}" id="regional_incidents">
+                <h4 class="fw-bold mb-3">Regional Incident Asset Scanning Hotspots</h4>
+                <form action="/reports/regional-incidents" method="get" class="row g-2 mb-4 p-3 bg-light rounded">
+                    <div class="col-md-9"><input type="text" name="location" class="form-control" placeholder="Target City/Region String lookup (e.g. Manila)..." value="{{ filters.location or '' }}" required></div>
+                    <div class="col-md-3"><button type="submit" class="btn btn-primary w-100">Scan Location Matrix</button></div>
+                </form>
+                {% include 'partials/vehicles_table.html' %}
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

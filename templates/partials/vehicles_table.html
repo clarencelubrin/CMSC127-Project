@@ -1,0 +1,24 @@
+<div class="table-responsive">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr><th>Plate No</th><th>Make/Model</th><th>Engine No</th><th>Chassis No</th><th>Type</th><th>Color</th><th>Owner License</th></tr>
+        </thead>
+        <tbody>
+            {% if content_list and active_report in ['vehicles_by_driver', 'expired_registrations', 'regional_incidents'] %}
+                {% for item in content_list %}
+                <tr>
+                    <td class="fw-bold text-primary">{{ item.plate_no }}</td>
+                    <td>{{ item.make }} {{ item.model }} ({{ item.year }})</td>
+                    <td>{{ item.engine_no }}</td>
+                    <td>{{ item.chassis_no }}</td>
+                    <td>{{ item.vehicle_type }}</td>
+                    <td>{{ item.color }}</td>
+                    <td class="text-muted fw-bold">{{ item.license_no if item.license_no else 'N/A' }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No vehicle records found matching this query.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>

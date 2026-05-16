@@ -1,0 +1,24 @@
+<div class="table-responsive">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr><th>Violation ID</th><th>Date</th><th>Location</th><th>Fine</th><th>Officer</th><th>Status</th><th>Plate Linked</th></tr>
+        </thead>
+        <tbody>
+            {% if content_list and active_report == 'violations_range' %}
+                {% for item in content_list %}
+                <tr>
+                    <td>{{ item.violation_id }}</td>
+                    <td>{{ item.date }}</td>
+                    <td>{{ item.location }}</td>
+                    <td class="fw-bold text-danger">₱{{ "{:,.2f}".format(item.corresponding_fine_amount) }}</td>
+                    <td>{{ item.apprehending_officer }}</td>
+                    <td><span class="status-{{ item.violation_status | lower }}">{{ item.violation_status }}</span></td>
+                    <td class="fw-bold text-primary">{{ item.plate_no }}</td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr><td colspan="7" class="text-center text-muted py-4">No violations on file inside the given parameters.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
