@@ -1,0 +1,22 @@
+{% set flash_error = error or request.query_params.get('error') %}
+{% set flash_success = success or request.query_params.get('success') %}
+
+{% if flash_error %}
+<div class="alert alert-danger alert-dismissible fade show shadow-sm border-0 mb-4 flash-banner" role="alert">
+    <div class="d-flex align-items-start gap-2">
+        <div class="fw-semibold">Error</div>
+        <div class="flex-grow-1">{{ flash_error }}</div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+{% if flash_success %}
+<div class="alert alert-success alert-dismissible fade show shadow-sm border-0 mb-4 flash-banner" role="alert">
+    <div class="d-flex align-items-start gap-2">
+        <div class="fw-semibold">Success</div>
+        <div class="flex-grow-1">{{ flash_success }}</div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
