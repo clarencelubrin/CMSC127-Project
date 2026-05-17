@@ -24,7 +24,7 @@ CREATE TABLE VEHICLE(
 );
 
 CREATE TABLE REGISTRY(
-	registration_no INT(15),
+	registration_no VARCHAR(15),
 	registration_date DATE,
 	expiration_date DATE,
 	registration_status VARCHAR(100),
@@ -37,7 +37,7 @@ CREATE TABLE REGISTRY(
 );
 
 CREATE TABLE VIOLATION(
-	violation_id INT(15),
+	violation_id VARCHAR(15),
 	date DATE,
 	location VARCHAR(200),
 	corresponding_fine_amount DECIMAL,
@@ -51,7 +51,7 @@ CREATE TABLE VIOLATION(
 );
 
 CREATE TABLE VIOLATION_VIOLATION_TYPE(
-	violation_id INT(15),
+	violation_id VARCHAR(15),
 	violation_type VARCHAR(100),
 	CONSTRAINT pk_violation_violation_type PRIMARY KEY (violation_id, violation_type)
 );

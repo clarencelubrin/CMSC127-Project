@@ -93,7 +93,7 @@ async def add_driver(
     address: str = Form(...),
     sex: str = Form(...),
     date_of_birth: str = Form(...),
-    registration_no: int = Form(None), # Optional, can be empty
+    registration_no: str = Form(None), # Optional, can be empty
     curr=Depends(get_db)
 ):
     if not isLicenseNumberValid(license_no):
@@ -233,7 +233,7 @@ async def add_vehicle(
     year: int = Form(...),
     model: str = Form(...),
     make: str = Form(...),
-    registration_no: int = Form(None), # Optional
+    registration_no: str = Form(None), # Optional
     license_no: str = Form(None), # Optional
     curr=Depends(get_db)
 ):
@@ -306,7 +306,7 @@ async def update_vehicle_route(
     year: int = Form(...),
     model: str = Form(...),
     make: str = Form(...),
-    registration_no: int = Form(None), # Optional
+    registration_no: str = Form(None), # Optional
     license_no: str = Form(None), # Optional
     curr=Depends(get_db)
 ):
@@ -351,7 +351,7 @@ async def list_violations(request: Request, curr=Depends(get_db)):
 @app.post("/violations/add")
 async def add_violation(
     request: Request,
-    violation_id: int = Form(...),
+    violation_id: str = Form(...),
     date: str = Form(...),
     location: str = Form(...),
     corresponding_fine_amount: float = Form(...),
@@ -368,6 +368,14 @@ async def add_violation(
         return redirect_with_flash(
             "/violations",
             error=f"Invalid violation date format. Expected YYYY-MM-DD. {e}"
+        )
+
+    # if there is no license_no and no plate_no, 
+    # we should not allow the registration to be created since it must be linked to either a driver or a vehicle
+    if not license_no and not plate_no:
+        return redirect_with_flash(
+            "/registrations",
+            error="A license number or plate number is required."
         )
 
     try:
@@ -395,7 +403,7 @@ async def add_violation(
     
 @app.post("/violations/update")
 async def update_violation_route(
-    violation_id: int = Form(...),
+    violation_id: str = Form(...),
     date: str = Form(...),
     location: str = Form(...),
     corresponding_fine_amount: float = Form(...),
@@ -412,6 +420,14 @@ async def update_violation_route(
         return redirect_with_flash(
             "/violations",
             error=f"Invalid violation date format. Expected YYYY-MM-DD. {e}"
+        )
+
+    # if there is no license_no and no plate_no, 
+    # we should not allow the registration to be created since it must be linked to either a driver or a vehicle
+    if not license_no and not plate_no:
+        return redirect_with_flash(
+            "/registrations",
+            error="A license number or plate number is required."
         )
 
     try:
@@ -438,7 +454,7 @@ async def update_violation_route(
 
 
 @app.post("/violations/{violation_id}/delete")
-async def delete_violation(violation_id: int, curr=Depends(get_db)):
+async def delete_violation(violation_id: str, curr=Depends(get_db)):
     success = violation_dao.delete_violation(curr, violation_id)
     if success:
         return redirect_with_flash("/violations", success="Violation deleted successfully")
@@ -499,7 +515,7 @@ async def list_registrations(request: Request, curr=Depends(get_db)):
 @app.post("/registrations/add")
 async def add_registration(
     request: Request,
-    registration_no: int = Form(...),
+    registration_no: str = Form(...),
     registration_date: str = Form(...),
     expiration_date: str = Form(...),
     registration_status: str = Form(...),
@@ -516,6 +532,14 @@ async def add_registration(
         return redirect_with_flash(
             "/registrations",
             error="Invalid plate number format. Expected format: AAA-1234"
+        )
+    
+    # if there is no license_no and no plate_no, 
+    # we should not allow the registration to be created since it must be linked to either a driver or a vehicle
+    if not license_no and not plate_no:
+        return redirect_with_flash(
+            "/registrations",
+            error="A license number or plate number is required."
         )
 
     try:
@@ -586,7 +610,7 @@ async def search_registration(request: Request, query: str, curr=Depends(get_db)
 
 @app.post("/registrations/update")
 async def update_registration_route(
-    registration_no: int = Form(...),
+    registration_no: str = Form(...),
     registration_date: str = Form(...),
     expiration_date: str = Form(...),
     registration_status: str = Form(...),
@@ -604,6 +628,14 @@ async def update_registration_route(
         return redirect_with_flash(
             "/registrations",
             error="Invalid plate number format. Expected format: AAA-1234"
+        )
+
+    # if there is no license_no and no plate_no, 
+    # we should not allow the registration to be created since it must be linked to either a driver or a vehicle
+    if not license_no and not plate_no:
+        return redirect_with_flash(
+            "/registrations",
+            error="A license number or plate number is required."
         )
 
     try:
@@ -642,7 +674,7 @@ async def update_registration_route(
         return redirect_with_flash("/registrations", error=f"Error updating registration: {e}")
     
 @app.post("/registrations/{registration_no}/delete")
-async def delete_registration(registration_no: int, curr=Depends(get_db)):
+async def delete_registration(registration_no: str, curr=Depends(get_db)):
     success = registration_dao.delete_registration(curr, registration_no)
     if success:
         return redirect_with_flash("/registrations", success="Registration deleted successfully")

@@ -6,7 +6,7 @@
         <tbody>
             {% if content_list and active_report in ['drivers_filtered', 'invalid_licenses'] %}
                 {% for item in content_list %}
-                <tr style="cursor: pointer;" onclick="window.location.href='/drivers/{{ item.license_no }}'">
+                <tr style="cursor: pointer;">
                     <td class="fw-bold text-primary">{{ item.license_no }}</td>
                     <td>{{ item.full_name }}</td>
                     <td>{{ item.license_type }}</td>

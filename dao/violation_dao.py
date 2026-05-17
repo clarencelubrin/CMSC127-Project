@@ -94,7 +94,7 @@ def get_all_violations(curr):
             
             # Append violation types using the temporary cursor
             for vt_row in sub_curr.fetchall():
-                v_obj = ViolationType(int(vt_row[0]), vt_row[1]) #
+                v_obj = ViolationType(vt_row[0], vt_row[1]) #
                 violation.violation_types.append(v_obj)
             
             sub_curr.close() # Always close temporary cursors

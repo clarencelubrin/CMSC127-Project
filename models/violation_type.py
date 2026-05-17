@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 class ViolationType(BaseModel):
-    violation_id: int
+    violation_id: str
     violation_type: str
     
     def __init__(self, *args, **kwargs):

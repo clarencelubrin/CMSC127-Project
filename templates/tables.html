@@ -170,7 +170,7 @@
                 
                 {# REGISTRATION FIELDS #}
                 {% if type == 'registration' %}
-                    <div class="col-md-12"><label class="form-label">Registration No.</label><input type="number" name="registration_no" class="form-control" required></div>
+                    <div class="col-md-12"><label class="form-label">Registration No.</label><input type="text" name="registration_no" class="form-control" required></div>
                     <div class="col-md-6"><label class="form-label">Registration Date</label><input type="date" name="registration_date" class="form-control" required></div>
                     <div class="col-md-6"><label class="form-label">Expiration Date</label><input type="date" name="expiration_date" class="form-control" required></div>
                     <div class="col-md-12">
@@ -205,7 +205,6 @@
                         <select name="sex" class="form-select"><option value="M">Male</option><option value="F">Female</option></select>
                     </div>
                     <div class="col-md-6"><label class="form-label">Date of Birth</label><input type="date" name="date_of_birth" class="form-control" required></div>
-                    <!-- <div class="col-md-6"><label class="form-label">Registration No. (FK)</label><input type="number" name="registration_no" class="form-control"></div> -->
 
                 {# VEHICLE FIELDS #}
                 {% elif type == 'vehicle' %}
@@ -220,7 +219,7 @@
 
                 {# VIOLATION FIELDS #}
                 {% elif type == 'violation' %}
-                    <div class="col-md-4"><label class="form-label">Violation ID</label><input type="number" name="violation_id" class="form-control" required></div>
+                    <div class="col-md-4"><label class="form-label">Violation ID</label><input type="text" name="violation_id" class="form-control" required></div>
                     <div class="col-md-4"><label class="form-label">Date</label><input type="date" name="date" class="form-control" required></div>
                     <div class="col-md-4"><label class="form-label">Fine Amount</label><input type="number" step="0.01" name="corresponding_fine_amount" class="form-control" required></div>
                     <div class="col-md-12"><label class="form-label">Location</label><input type="text" name="location" class="form-control" required></div>
@@ -260,7 +259,7 @@
                 
                 {# The fields here must match the 'name' attributes in the Add Modal #}
                 {% if type == 'registration' %}
-                    <div class="col-md-12"><label class="form-label">Registration No.</label><input type="number" name="registration_no" class="form-control" readonly></div>
+                    <div class="col-md-12"><label class="form-label">Registration No.</label><input type="text" name="registration_no" class="form-control" readonly></div>
                     <div class="col-md-6"><label class="form-label">Registration Date</label><input type="date" name="registration_date" class="form-control" required></div>
                     <div class="col-md-6"><label class="form-label">Expiration Date</label><input type="date" name="expiration_date" class="form-control" required></div>
                     <div class="col-md-12">
@@ -292,7 +291,6 @@
                     <div class="col-md-12"><label class="form-label">Address</label><input type="text" name="address" class="form-control"></div>
                     <div class="col-md-4"><label class="form-label">Sex</label><input type="text" name="sex" class="form-control"></div>
                     <div class="col-md-4"><label class="form-label">Date of Birth</label><input type="date" name="date_of_birth" class="form-control"></div>
-                    <!-- <div class="col-md-4"><label class="form-label">Reg. No.</label><input type="number" name="registration_no" class="form-control"></div> -->
 
                 {% elif type == 'vehicle' %}
                     <div class="col-md-12"><label class="form-label">Plate No.</label><input type="text" name="plate_no" class="form-control" readonly></div>
@@ -303,11 +301,9 @@
                     <div class="col-md-6"><label class="form-label">Year</label><input type="number" name="year" class="form-control"></div>
                     <div class="col-md-6"><label class="form-label">Model</label><input type="text" name="model" class="form-control"></div>
                     <div class="col-md-6"><label class="form-label">Make</label><input type="text" name="make" class="form-control"></div>
-                    <!-- <div class="col-md-6"><label class="form-label">Reg. No.</label><input type="number" name="registration_no" class="form-control"></div> -->
-                    <!-- <div class="col-md-6"><label class="form-label">License No.</label><input type="text" name="license_no" class="form-control"></div> -->
 
                 {% elif type == 'violation' %}
-                    <div class="col-md-12"><label class="form-label">Violation ID</label><input type="number" name="violation_id" class="form-control" readonly></div>
+                    <div class="col-md-12"><label class="form-label">Violation ID</label><input type="text" name="violation_id" class="form-control" readonly></div>
                     <div class="col-md-6"><label class="form-label">Date</label><input type="date" name="date" class="form-control"></div>
                     <!-- location -->
                     <div class="col-md-6"><label class="form-label">Location</label><input type="text" name="location" class="form-control"></div>

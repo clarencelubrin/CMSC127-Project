@@ -3,7 +3,7 @@ from datetime import date as Date
 from models.violation_type import ViolationType
 
 class Violation(BaseModel):
-    violation_id: int
+    violation_id: str
     date: Date
     location: str
     corresponding_fine_amount: float

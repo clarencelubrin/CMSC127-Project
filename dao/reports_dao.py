@@ -5,22 +5,44 @@ from models.driver import Driver
 from models.vehicle import Vehicle
 from models.violation import Violation
 
-def drivers_filtered_query(curr, license_type, license_status, age_min, age_max, sex):
+def drivers_filtered_query(curr, license_type="", license_status="", age_min="", age_max="", sex=""):
     """View all registered drivers filtered by: License type, License status, Age range, Sex"""
     try:
-        # FIX: Replaced strftime with MariaDB's YEAR(CURDATE()) and YEAR(date_of_birth)
-        query = """
-            SELECT * FROM DRIVER 
-            WHERE license_type LIKE ? 
-              AND license_status LIKE ? 
-              AND sex LIKE ? 
-              AND (YEAR(CURDATE()) - YEAR(date_of_birth)) BETWEEN ? AND ?
-        """
-        curr.execute(query, (f"%{license_type}%", f"%{license_status}%", f"%{sex}%", age_min, age_max))
+        query = "SELECT * FROM DRIVER WHERE 1=1"
+        params = []
+
+        # Dynamically add conditions if the parameter is not an empty string
+        if license_type != "":
+            query += " AND license_type = ?"
+            params.append(license_type)
+            
+        if license_status != "":
+            query += " AND license_status = ?"
+            params.append(license_status)
+            
+        if sex != "":
+            query += " AND sex = ?"
+            params.append(sex)
+            
+        # Handle age range (supports providing both, just min, or just max)
+        if age_min != "" and age_max != "":
+            query += " AND (YEAR(CURDATE()) - YEAR(date_of_birth)) BETWEEN ? AND ?"
+            params.extend([age_min, age_max])
+        elif age_min != "":
+            query += " AND (YEAR(CURDATE()) - YEAR(date_of_birth)) >= ?"
+            params.append(age_min)
+        elif age_max != "":
+            query += " AND (YEAR(CURDATE()) - YEAR(date_of_birth)) <= ?"
+            params.append(age_max)
+
+        # Execute the dynamically built query
+        curr.execute(query, tuple(params))
         row = curr.fetchall()
+        
         if row:
             return [Driver(*r) for r in row]
         return None
+        
     except Exception as e:
         print(f"Error retrieving driver: {e}")
         return None

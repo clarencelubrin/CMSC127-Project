@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from datetime import date as Date
 
 class Registration(BaseModel):
-    registration_no: int
+    registration_no: str
     registration_date: Date
     expiration_date: Date
     registration_status: str
