@@ -31,7 +31,7 @@ def search_vehicle(curr, search_term):
     try:
         curr.execute(
             "SELECT * FROM VEHICLE WHERE plate_no LIKE ? OR model LIKE ? OR make LIKE ? OR vehicle_type LIKE ? OR color LIKE ? OR year LIKE ? OR license_no LIKE ? OR engine_no LIKE ? OR chassis_no LIKE ?", 
-            (f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%")
+            (f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%", f"%{search_term}%")
         )
         rows = curr.fetchall()
         return [Vehicle(*row) for row in rows]
