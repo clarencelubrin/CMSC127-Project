@@ -206,6 +206,12 @@ async def add_driver(
 
     try:
         dob = Date.fromisoformat(date_of_birth)
+        # If it is greater than curdate return an error
+        if dob > PyDate.today():
+            return redirect_with_flash(
+                "/drivers",
+                error="Date of birth cannot be in the future"
+            )
     except ValueError as e:
         return redirect_with_flash(
             "/drivers",
@@ -286,6 +292,12 @@ async def update_driver_route(
 
     try:
         dob = Date.fromisoformat(date_of_birth)
+        # If it is greater than curdate return an error
+        if dob > PyDate.today():
+            return redirect_with_flash(
+                "/drivers",
+                error="Date of birth cannot be in the future"
+            )         
     except ValueError as e:
         return redirect_with_flash(
             "/drivers",
