@@ -1,3 +1,17 @@
+# CMSC 127 Project
+
+This information system will be a Land Transportation Office (LTO) Information Management System, designed to support the recording and management of drivers, motor vehicles, registrations, and traffic violations in the Philippines. The system aims to simulate a simplified version of real-world LTO operations, emphasizing proper database design, data integrity, and efficient query processing.
+
+## Contributors
+
+- Lubrin, Clarence
+- Paguirigan, Jorge
+- Usares, Jerome
+
+## ERD Design
+
+![ERD Image](./erd.png)
+
 # How to run the application
 
 ## Download dependencies
@@ -38,4 +52,10 @@ sudo bash <ROOT_LOCATION_OF_REPOSITORY>/init.sh
 Start the server
 ```
 uvicorn app:app --reload
+```
+
+## How to create/delete users as a Database Administrator
+
+```
+admin.py (--create | --delete | --list) [--username USERNAME] [--password PASSWORD]
 ```

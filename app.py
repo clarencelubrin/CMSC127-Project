@@ -1,7 +1,11 @@
 import os
 from urllib.parse import quote_plus
 from sqlite3 import Date
-from fastapi import FastAPI, Request, Form, Depends
+from datetime import datetime, timedelta
+from typing import Optional
+import jwt
+import bcrypt
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -17,7 +21,7 @@ from database.connection import DBConnection
 from models.registration import Registration
 from models.vehicle import Vehicle
 from models.violation import Violation
-from models.violation_type import ViolationType # Ensure this exists based on your main.py
+from models.violation_type import ViolationType 
 
 from functions.validator import isLicenseNumberValid, isPlateNumberValid
 
@@ -28,16 +32,39 @@ load_dotenv()
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-# Builds a 303 redirect to the given URL with optional ?error= or ?success= erorr message params.
-def redirect_with_flash(target_url: str, *, error: str = None, success: str = None):
-    params = []
-    if error:
-        params.append(f"error={quote_plus(error)}")
-    if success:
-        params.append(f"success={quote_plus(success)}")
+# --- AUTHENTICATION & JWT SETUP ---
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "super-secret-key-change-in-production")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-    url = target_url if not params else f"{target_url}?{'&'.join(params)}"
-    return RedirectResponse(url=url, status_code=303)
+class NotAuthenticatedException(Exception):
+    pass
+
+@app.exception_handler(NotAuthenticatedException)
+def auth_exception_handler(request: Request, exc: NotAuthenticatedException):
+    return RedirectResponse(url="/login")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    # bcrypt requires bytes, so we encode the strings
+    return bcrypt.checkpw(
+        plain_password.encode('utf-8'), 
+        hashed_password.encode('utf-8')
+    )
+
+def get_password_hash(password: str) -> str:
+    # Hash the password and decode back to string for database storage
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
 
 # Database Dependency
 def get_db():
@@ -57,19 +84,93 @@ def get_db():
         curr.close()
         db.disconnect()
 
+# Dependency to protect routes
+def get_current_user(request: Request, curr=Depends(get_db)):
+    token = request.cookies.get("access_token")
+    if not token:
+        raise NotAuthenticatedException()
+    try:
+        if token.startswith("Bearer "):
+            token = token.split(" ")[1]
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise NotAuthenticatedException()
+    except jwt.PyJWTError:
+        raise NotAuthenticatedException()
+    
+    # Verify user exists in the database
+    curr.execute("SELECT username FROM users WHERE username = %s", (username,))
+    user = curr.fetchone()
+    if user is None:
+        raise NotAuthenticatedException()
+    return username
+
+
+# --- UTILITIES ---
+def redirect_with_flash(target_url: str, *, error: str = None, success: str = None):
+    params = []
+    if error:
+        params.append(f"error={quote_plus(error)}")
+    if success:
+        params.append(f"success={quote_plus(success)}")
+
+    url = target_url if not params else f"{target_url}?{'&'.join(params)}"
+    return RedirectResponse(url=url, status_code=303)
+
+
+# --- AUTH ROUTES ---
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    # Pass arguments explicitly by name
+    return templates.TemplateResponse(
+        request=request, 
+        name="login.html", 
+        context={}
+    )
+
+@app.post("/login")
+async def login(request: Request, username: str = Form(...), password: str = Form(...), curr=Depends(get_db)):
+    curr.execute("SELECT password_hash FROM users WHERE username = %s", (username,))
+    user_record = curr.fetchone()
+    
+    if not user_record or not verify_password(password, user_record[0]):
+        # Pass arguments explicitly by name here too
+        return templates.TemplateResponse(
+            request=request, 
+            name="login.html", 
+            context={"error": "Invalid username or password"}
+        )
+    
+    access_token = create_access_token(
+        data={"sub": username}, 
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    response = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+    response.set_cookie(key="access_token", value=f"Bearer {access_token}", httponly=True, max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60)
+    return response
+
+@app.get("/logout")
+async def logout():
+    response = RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    response.delete_cookie("access_token")
+    return response
+
+
 # --- UI ROUTES ---
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard(request: Request):
+async def dashboard(request: Request, current_user=Depends(get_current_user)):
     return templates.TemplateResponse(
         request=request, 
         name="index.html", 
-        context={} # Add any other variables you need here
+        context={"username": current_user} 
     )
 
 # DRIVER MANAGEMENT
 @app.get("/drivers")
-def list_drivers(request: Request, curr=Depends(get_db)):
+def list_drivers(request: Request, curr=Depends(get_db), current_user=Depends(get_current_user)):
     drivers = driver_dao.get_all_drivers(curr)
     return templates.TemplateResponse(
         request=request,
@@ -93,8 +194,9 @@ async def add_driver(
     address: str = Form(...),
     sex: str = Form(...),
     date_of_birth: str = Form(...),
-    registration_no: str = Form(None), # Optional, can be empty
-    curr=Depends(get_db)
+    registration_no: str = Form(None),
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     if not isLicenseNumberValid(license_no):
         return redirect_with_flash(
@@ -104,6 +206,12 @@ async def add_driver(
 
     try:
         dob = Date.fromisoformat(date_of_birth)
+        # If it is greater than curdate return an error
+        if dob > PyDate.today():
+            return redirect_with_flash(
+                "/drivers",
+                error="Date of birth cannot be in the future"
+            )
     except ValueError as e:
         return redirect_with_flash(
             "/drivers",
@@ -126,7 +234,7 @@ async def add_driver(
         return redirect_with_flash("/drivers", error=f"Error saving to database: {e}")
     
 @app.get("/drivers/search")
-async def search_driver(request: Request, query: str, curr=Depends(get_db)):
+async def search_driver(request: Request, query: str, curr=Depends(get_db), current_user=Depends(get_current_user)):
     try:
         drivers = driver_dao.search_driver(curr, query)
         
@@ -157,7 +265,7 @@ async def search_driver(request: Request, query: str, curr=Depends(get_db)):
         )
 
 @app.post("/drivers/{license_no}/delete")
-async def delete_driver(license_no: str, curr=Depends(get_db)):
+async def delete_driver(license_no: str, curr=Depends(get_db), current_user=Depends(get_current_user)):
     success = driver_dao.delete_driver(curr, license_no)
     if success:
         return redirect_with_flash("/drivers", success="Driver deleted successfully")
@@ -172,8 +280,9 @@ async def update_driver_route(
     address: str = Form(...),
     sex: str = Form(...),
     date_of_birth: str = Form(...),
-    registration_no: str = Form(None), # Optional
-    curr=Depends(get_db)
+    registration_no: str = Form(None), 
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     if not isLicenseNumberValid(license_no):
         return redirect_with_flash(
@@ -183,6 +292,12 @@ async def update_driver_route(
 
     try:
         dob = Date.fromisoformat(date_of_birth)
+        # If it is greater than curdate return an error
+        if dob > PyDate.today():
+            return redirect_with_flash(
+                "/drivers",
+                error="Date of birth cannot be in the future"
+            )         
     except ValueError as e:
         return redirect_with_flash(
             "/drivers",
@@ -190,12 +305,10 @@ async def update_driver_route(
         )
 
     try:
-        # Create driver object
         driver = Driver(
             license_no, full_name, license_type, license_status,
             address, sex, dob, registration_no
         )
-        # DAO expects tuple in specific order for UPDATE SQL
         success = driver_dao.update_driver(curr, driver)
         if success:
             return redirect_with_flash("/drivers", success="Driver updated successfully")
@@ -206,7 +319,7 @@ async def update_driver_route(
     
 # VEHICLE MANAGEMENT
 @app.get("/vehicles")
-async def list_vehicles(request: Request, curr=Depends(get_db)):
+async def list_vehicles(request: Request, curr=Depends(get_db), current_user=Depends(get_current_user)):
     from models.vehicle import Vehicle
     vehicles = vehicle_dao.get_all_vehicles(curr)
     
@@ -233,9 +346,10 @@ async def add_vehicle(
     year: int = Form(...),
     model: str = Form(...),
     make: str = Form(...),
-    registration_no: str = Form(None), # Optional
-    license_no: str = Form(None), # Optional
-    curr=Depends(get_db)
+    registration_no: str = Form(None), 
+    license_no: str = Form(None), 
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     if not isPlateNumberValid(plate_no):
         return redirect_with_flash(
@@ -259,7 +373,7 @@ async def add_vehicle(
         return redirect_with_flash("/vehicles", error=f"Error saving to database: {e}")
     
 @app.get("/vehicles/search")
-async def search_vehicle(request: Request, query: str, curr=Depends(get_db)):
+async def search_vehicle(request: Request, query: str, curr=Depends(get_db), current_user=Depends(get_current_user)):
     try:
         vehicles = vehicle_dao.search_vehicle(curr, query)
         
@@ -290,7 +404,7 @@ async def search_vehicle(request: Request, query: str, curr=Depends(get_db)):
         )
 
 @app.post("/vehicles/{plate_no}/delete")
-async def delete_vehicle(plate_no: str, curr=Depends(get_db)):
+async def delete_vehicle(plate_no: str, curr=Depends(get_db), current_user=Depends(get_current_user)):
     success = vehicle_dao.delete_vehicle(curr, plate_no)
     if success:
         return redirect_with_flash("/vehicles", success="Vehicle deleted successfully")
@@ -306,9 +420,10 @@ async def update_vehicle_route(
     year: int = Form(...),
     model: str = Form(...),
     make: str = Form(...),
-    registration_no: str = Form(None), # Optional
-    license_no: str = Form(None), # Optional
-    curr=Depends(get_db)
+    registration_no: str = Form(None),
+    license_no: str = Form(None), 
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     if not isPlateNumberValid(plate_no):
         return redirect_with_flash(
@@ -331,18 +446,18 @@ async def update_vehicle_route(
 
 # VIOLATION MANAGEMENT
 @app.get("/violations", response_class=HTMLResponse)
-async def list_violations(request: Request, curr=Depends(get_db)):
+async def list_violations(request: Request, curr=Depends(get_db), current_user=Depends(get_current_user)):
     from models.violation import Violation
     violations = violation_dao.get_all_violations(curr)
 
     return templates.TemplateResponse(
-        request=request,  # Must be provided explicitly
-        name="tables.html", # The filename of the template
+        request=request,  
+        name="tables.html", 
         context={
             "type": "violation",
             "table_name": "Violation",
             "title": "Violation Management",
-            "headers": Violation.get_headers(), # Use the exact method name from your model
+            "headers": Violation.get_headers(), 
             "content": [v.serialize() for v in violations]
         }
     )
@@ -359,8 +474,9 @@ async def add_violation(
     violation_status: str = Form(...),
     license_no: str = Form(None),
     plate_no: str = Form(None),
-    violation_types: str = Form(None), # Comma-separated string of violation types
-    curr=Depends(get_db)
+    violation_types: str = Form(None), 
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     try:
         parsed_date = Date.fromisoformat(date)
@@ -370,8 +486,6 @@ async def add_violation(
             error=f"Invalid violation date format. Expected YYYY-MM-DD. {e}"
         )
 
-    # if there is no license_no and no plate_no, 
-    # we should not allow the registration to be created since it must be linked to either a driver or a vehicle
     if not license_no and not plate_no:
         return redirect_with_flash(
             "/registrations",
@@ -379,11 +493,10 @@ async def add_violation(
         )
 
     try:
-        # convert comma-separated violation types into list of ViolationType objects
         vt_list = []
         if violation_types:
             for vt in violation_types.split(","):
-                vt_list.append(ViolationType(violation_id, vt.strip())) # Assuming ViolationType can be created with just the type name
+                vt_list.append(ViolationType(violation_id, vt.strip()))
 
         new_violation = Violation(
             violation_id, parsed_date, location,
@@ -411,8 +524,9 @@ async def update_violation_route(
     violation_status: str = Form(...),
     license_no: str = Form(None),
     plate_no: str = Form(None),
-    violation_types: str = Form(None), # Comma-separated string of violation types
-    curr=Depends(get_db)
+    violation_types: str = Form(None),
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     try:
         parsed_date = Date.fromisoformat(date)
@@ -422,8 +536,6 @@ async def update_violation_route(
             error=f"Invalid violation date format. Expected YYYY-MM-DD. {e}"
         )
 
-    # if there is no license_no and no plate_no, 
-    # we should not allow the registration to be created since it must be linked to either a driver or a vehicle
     if not license_no and not plate_no:
         return redirect_with_flash(
             "/registrations",
@@ -434,7 +546,7 @@ async def update_violation_route(
         vt_list = []
         if violation_types:
             for vt in violation_types.split(","):
-                vt_list.append(ViolationType(violation_id, vt.strip())) # Assuming ViolationType can be created with just the type name
+                vt_list.append(ViolationType(violation_id, vt.strip())) 
 
         new_violation = Violation(
             violation_id, parsed_date, location,
@@ -454,16 +566,15 @@ async def update_violation_route(
 
 
 @app.post("/violations/{violation_id}/delete")
-async def delete_violation(violation_id: str, curr=Depends(get_db)):
+async def delete_violation(violation_id: str, curr=Depends(get_db), current_user=Depends(get_current_user)):
     success = violation_dao.delete_violation(curr, violation_id)
     if success:
         return redirect_with_flash("/violations", success="Violation deleted successfully")
     return redirect_with_flash("/violations", error="Error deleting violation")
 
 @app.get("/violations/search")
-async def search_violations(request: Request, query: str, curr=Depends(get_db)):
+async def search_violations(request: Request, query: str, curr=Depends(get_db), current_user=Depends(get_current_user)):
     try:
-        # Call the new general search that returns a list
         violations = violation_dao.search_violation(curr, query)
         
         if violations:
@@ -485,7 +596,6 @@ async def search_violations(request: Request, query: str, curr=Depends(get_db)):
         )
     except Exception as e:
         print(f"Search error: {e}")
-        # Ensure the fallback also uses keyword arguments for Python 3.14 compatibility
         return templates.TemplateResponse(
             request=request,
             name="tables.html",
@@ -495,11 +605,11 @@ async def search_violations(request: Request, query: str, curr=Depends(get_db)):
 
 # Registration Management
 @app.get("/registrations", response_class=HTMLResponse)
-async def list_registrations(request: Request, curr=Depends(get_db)):
+async def list_registrations(request: Request, curr=Depends(get_db), current_user=Depends(get_current_user)):
     registrations = registration_dao.get_all_registrations(curr)
 
     for r in registrations:
-        print(r, r.serialize()) # Debug print to check if serialize works
+        print(r, r.serialize()) 
     
     return templates.TemplateResponse(
         request=request,
@@ -508,10 +618,11 @@ async def list_registrations(request: Request, curr=Depends(get_db)):
             "type": "registration",
             "table_name": "Registration",
             "title": "Registration Management",
-            "headers": Registration.get_headers(), # Use the exact method name from your model
+            "headers": Registration.get_headers(),
             "content": [r.serialize() for r in registrations]
         }
     )
+
 @app.post("/registrations/add")
 async def add_registration(
     request: Request,
@@ -521,7 +632,8 @@ async def add_registration(
     registration_status: str = Form(...),
     license_no: str = Form(None),
     plate_no: str = Form(None),
-    curr=Depends(get_db)
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     if license_no and not isLicenseNumberValid(license_no):
         return redirect_with_flash(
@@ -534,8 +646,6 @@ async def add_registration(
             error="Invalid plate number format. Expected format: AAA-1234"
         )
     
-    # if there is no license_no and no plate_no, 
-    # we should not allow the registration to be created since it must be linked to either a driver or a vehicle
     if not license_no and not plate_no:
         return redirect_with_flash(
             "/registrations",
@@ -577,15 +687,15 @@ async def add_registration(
         return redirect_with_flash("/registrations", error=f"Error saving to database: {e}")
 
 @app.get("/registrations/search")
-async def search_registration(request: Request, query: str, curr=Depends(get_db)):
+async def search_registration(request: Request, query: str, curr=Depends(get_db), current_user=Depends(get_current_user)):
     try:
         registration = registration_dao.search_registration(curr, query)
-        print(f"DEBUG: search_registration returned: {registration}")  # Debug print to check raw output
+        print(f"DEBUG: search_registration returned: {registration}")  
         if registration:
             registration_data = [reg.serialize() for reg in registration]
         else:
             registration_data = []
-        print(f"DEBUG: Serialized registration data: {registration_data}")  # Debug print to check serialized data  
+        print(f"DEBUG: Serialized registration data: {registration_data}")  
 
         return templates.TemplateResponse(
             request=request,
@@ -606,7 +716,7 @@ async def search_registration(request: Request, query: str, curr=Depends(get_db)
             request=request,
             name="tables.html",
             context={"type": "registration", "content": [], "message": f"Error: {e}", "headers": []}
-        )    
+        )   
 
 @app.post("/registrations/update")
 async def update_registration_route(
@@ -616,9 +726,9 @@ async def update_registration_route(
     registration_status: str = Form(...),
     license_no: str = Form(None),
     plate_no: str = Form(None),
-    curr=Depends(get_db)
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
-    # Validate license_no and plate_no formats if they are provided
     if license_no and not isLicenseNumberValid(license_no):
         return redirect_with_flash(
             "/registrations",
@@ -630,8 +740,6 @@ async def update_registration_route(
             error="Invalid plate number format. Expected format: AAA-1234"
         )
 
-    # if there is no license_no and no plate_no, 
-    # we should not allow the registration to be created since it must be linked to either a driver or a vehicle
     if not license_no and not plate_no:
         return redirect_with_flash(
             "/registrations",
@@ -674,7 +782,7 @@ async def update_registration_route(
         return redirect_with_flash("/registrations", error=f"Error updating registration: {e}")
     
 @app.post("/registrations/{registration_no}/delete")
-async def delete_registration(registration_no: str, curr=Depends(get_db)):
+async def delete_registration(registration_no: str, curr=Depends(get_db), current_user=Depends(get_current_user)):
     success = registration_dao.delete_registration(curr, registration_no)
     if success:
         return redirect_with_flash("/registrations", success="Registration deleted successfully")
@@ -689,7 +797,8 @@ async def report_drivers_filtered(
     age_min: int = 18,
     age_max: int = 80,
     sex: str = "",
-    curr=Depends(get_db)
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     try:
         drivers = reports_dao.drivers_filtered_query(
@@ -735,7 +844,7 @@ async def report_drivers_filtered(
 
 # --- REPORT 2: VEHICLES BY DRIVER OWNER LINK ---
 @app.get("/reports/vehicles-by-driver", response_class=HTMLResponse)
-async def report_vehicles_by_driver(request: Request, license_no: str = None, curr=Depends(get_db)):
+async def report_vehicles_by_driver(request: Request, license_no: str = None, curr=Depends(get_db), current_user=Depends(get_current_user)):
     if not license_no:
         return templates.TemplateResponse(
             request=request,
@@ -779,7 +888,7 @@ async def report_vehicles_by_driver(request: Request, license_no: str = None, cu
 
 # --- REPORT 3: EXPIRED REGISTRATIONS AS OF DATE ---
 @app.get("/reports/expired-registrations", response_class=HTMLResponse)
-async def report_expired_registrations(request: Request, as_of_date: str = None, curr=Depends(get_db)):
+async def report_expired_registrations(request: Request, as_of_date: str = None, curr=Depends(get_db), current_user=Depends(get_current_user)):
     if as_of_date:
         try:
             Date.fromisoformat(as_of_date)
@@ -828,7 +937,7 @@ async def report_expired_registrations(request: Request, as_of_date: str = None,
 
 # --- REPORT 4: DRIVERS WITH EXPIRED OR SUSPENDED STATUS ---
 @app.get("/reports/invalid-licenses", response_class=HTMLResponse)
-async def report_invalid_licenses(request: Request, curr=Depends(get_db)):
+async def report_invalid_licenses(request: Request, curr=Depends(get_db), current_user=Depends(get_current_user)):
     try:
         drivers = reports_dao.drivers_with_expired_or_suspended_licenses_query(curr)
         content = [d.serialize() for d in drivers] if drivers else []
@@ -864,7 +973,8 @@ async def report_violations_range(
     license_no: str = None, 
     start_date: str = None, 
     end_date: str = None, 
-    curr=Depends(get_db)
+    curr=Depends(get_db),
+    current_user=Depends(get_current_user)
 ):
     if not license_no or not start_date or not end_date:
         return templates.TemplateResponse(
@@ -925,7 +1035,7 @@ async def report_violations_range(
 
 # --- REPORT 6: VIOLATION TYPE COUNTS BY ANNUAL AGGREGATION ---
 @app.get("/reports/violation-aggregates", response_class=HTMLResponse)
-async def report_violation_aggregates(request: Request, year: str = "2026", curr=Depends(get_db)):
+async def report_violation_aggregates(request: Request, year: str = "2026", curr=Depends(get_db), current_user=Depends(get_current_user)):
     try:
         int(year)
     except ValueError as e:
@@ -942,7 +1052,6 @@ async def report_violation_aggregates(request: Request, year: str = "2026", curr
         )
 
     try:
-        # This query directly returns raw aggregated database tuples: (violation_type, count)
         raw_data = reports_dao.violations_count_by_type_for_year_query(curr, year)
         rows = raw_data if raw_data else []
 
@@ -972,7 +1081,7 @@ async def report_violation_aggregates(request: Request, year: str = "2026", curr
 
 # --- REPORT 7: VEHICLES IN VIOLATIONS BY REGIONAL LOCALITY ---
 @app.get("/reports/regional-incidents", response_class=HTMLResponse)
-async def report_regional_incidents(request: Request, location: str = "", curr=Depends(get_db)):
+async def report_regional_incidents(request: Request, location: str = "", curr=Depends(get_db), current_user=Depends(get_current_user)):
     if not location:
         return templates.TemplateResponse(
             request=request,
@@ -1013,7 +1122,6 @@ async def report_regional_incidents(request: Request, location: str = "", curr=D
                 "error": f"Error loading regional incidents report: {e}"
             }
         )
-
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
