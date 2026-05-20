@@ -6,6 +6,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
+import uvicorn
 
 from models.driver import Driver
 from datetime import date as PyDate
@@ -22,7 +23,6 @@ from functions.validator import isLicenseNumberValid, isPlateNumberValid
 
 # Import your reporting DAO functions
 from dao import reports_dao
-
 
 load_dotenv()
 app = FastAPI()
@@ -1016,5 +1016,4 @@ async def report_regional_incidents(request: Request, location: str = "", curr=D
 
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
