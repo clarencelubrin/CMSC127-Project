@@ -124,3 +124,7 @@ INSERT INTO VIOLATION_VIOLATION_TYPE (violation_id, violation_type) VALUES
 ('000900000000006', 'Reckless Driving'), 
 ('000900000000017', 'Speeding'),
 ('000900000000020', 'Disregarding Traffic Sign');
+
+-- This hash is for the password 'admin' using bcrypt
+INSERT INTO users (username, password_hash) 
+VALUES ('admin', '$2b$12$vuQG7tna8uoENQPQaVrtduxpTXRqCBWvN4kxNVNaxJR0lC.oCGBLu');

@@ -55,3 +55,9 @@ CREATE TABLE VIOLATION_VIOLATION_TYPE(
 	violation_type VARCHAR(100),
 	CONSTRAINT pk_violation_violation_type PRIMARY KEY (violation_id, violation_type)
 );
+
+CREATE TABLE IF NOT EXISTS users (
+	id INT AUTO_INCREMENT PRIMARY KEY,
+	username VARCHAR(50) UNIQUE NOT NULL,
+	password_hash VARCHAR(255) NOT NULL
+);
